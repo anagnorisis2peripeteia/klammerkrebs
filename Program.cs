@@ -106,9 +106,11 @@ static void DetectFieldKeptLeaks(SyntaxNode root, SemanticModel model,
             .ToHashSet();
         if (disposableFields.Count == 0) continue;
 
-        // Which of those fields receive a freshly-created disposable inside this type?
+        // Which of those fields receive a freshly-created disposable inside this type? Covers both
+        // `new X()` and target-typed `new()` (BaseObjectCreationExpression) so field initializers like
+        // `private readonly SemaphoreSlim _lock = new(1, 1);` are seen, not just method-body creations.
         var seeded = new Dictionary<string, Location>();
-        foreach (var creation in typeDecl.DescendantNodes().OfType<ObjectCreationExpressionSyntax>())
+        foreach (var creation in typeDecl.DescendantNodes().OfType<BaseObjectCreationExpressionSyntax>())
         {
             var created = model.GetTypeInfo(creation).Type;
             if (created is null || !Implements(created, idisposable, iasyncDisposable)) continue;
@@ -146,7 +148,7 @@ static void DetectLocalLeaks(SyntaxNode root, SemanticModel model,
 
         foreach (var v in decl.Declaration.Variables)
         {
-            if (v.Initializer?.Value is not ObjectCreationExpressionSyntax creation) continue;
+            if (v.Initializer?.Value is not BaseObjectCreationExpressionSyntax creation) continue;
             var created = model.GetTypeInfo(creation).Type;
             if (created is null || !Implements(created, idisposable, null)) continue;
 
@@ -183,7 +185,7 @@ static bool HoldsDisposable(ITypeSymbol fieldType, INamedTypeSymbol idisposable,
 
 // If `creation` is stored in one of `fieldNames` (direct assign, or `field.Add(...)`, possibly via
 // an intervening local), return the field name. Uses the semantic model to resolve locals to fields.
-static string? FieldSinkOf(ObjectCreationExpressionSyntax creation, TypeDeclarationSyntax typeDecl,
+static string? FieldSinkOf(BaseObjectCreationExpressionSyntax creation, TypeDeclarationSyntax typeDecl,
     SemanticModel model, HashSet<string> fieldNames)
 {
     // _field = new X();  /  this._field = new X();
@@ -196,9 +198,14 @@ static string? FieldSinkOf(ObjectCreationExpressionSyntax creation, TypeDeclarat
     // _field.Add(new X());  — creation is the direct argument.
     if (DirectAddSink(creation, fieldNames) is { } direct) return direct;
 
-    // var w = new X(); _field.Add(w);  — creation initialises a local that is later Add-ed to a field.
     if (creation.Parent is EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax vd })
     {
+        // Field initializer:  private readonly X _field = new(...);  — the declarator sits under a
+        // FieldDeclaration (a local declaration sits under a LocalDeclarationStatement instead).
+        if (vd.Parent?.Parent is FieldDeclarationSyntax && fieldNames.Contains(vd.Identifier.Text))
+            return vd.Identifier.Text;
+
+        // var w = new X(); _field.Add(w);  — creation initialises a local later Add-ed to a field.
         var localName = vd.Identifier.Text;
         foreach (var inv in typeDecl.DescendantNodes().OfType<InvocationExpressionSyntax>())
         {
@@ -213,7 +220,7 @@ static string? FieldSinkOf(ObjectCreationExpressionSyntax creation, TypeDeclarat
     return null;
 }
 
-static string? DirectAddSink(ObjectCreationExpressionSyntax creation, HashSet<string> fieldNames)
+static string? DirectAddSink(BaseObjectCreationExpressionSyntax creation, HashSet<string> fieldNames)
 {
     if (creation.Parent is ArgumentSyntax { Parent: ArgumentListSyntax { Parent: InvocationExpressionSyntax inv } }
         && inv.Expression is MemberAccessExpressionSyntax { Name.Identifier.Text: "Add" or "Push" or "Enqueue" } ma)
