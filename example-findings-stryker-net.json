@@ -1,0 +1,26 @@
+[
+  {
+    "Rule": "DK001-local",
+    "File": "/Users/cameronbeeley/repos/stryker-net/src/Stryker.Core/Stryker.Core/Baseline/Providers/AzureFileShareBaselineProvider.cs",
+    "Line": 154,
+    "Message": "local \u0027reader\u0027 is a disposable that is neither disposed, returned, nor handed off."
+  },
+  {
+    "Rule": "DK002-field-kept",
+    "File": "/Users/cameronbeeley/repos/stryker-net/src/Stryker.Core/Stryker.Core/Clients/DashboardClient.cs",
+    "Line": 42,
+    "Message": "\u0027DashboardClient\u0027 stores a disposable in \u0027_httpClient\u0027 but never disposes it (no Dispose of \u0027_httpClient\u0027 anywhere in the type)."
+  },
+  {
+    "Rule": "DK002-field-kept",
+    "File": "/Users/cameronbeeley/repos/stryker-net/src/Stryker.Core/Stryker.Core/Reporters/Html/RealTime/SseServer.cs",
+    "Line": 62,
+    "Message": "\u0027SseServer\u0027 stores a disposable in \u0027_writers\u0027 but never disposes it (no Dispose of \u0027_writers\u0027 anywhere in the type)."
+  },
+  {
+    "Rule": "DK001-local",
+    "File": "/Users/cameronbeeley/repos/stryker-net/src/Stryker.Core/Stryker.Core/Reporters/WebBrowserOpener/CrossPlatformBrowserOpener.cs",
+    "Line": 30,
+    "Message": "local \u0027wslPathProcess\u0027 is a disposable that is neither disposed, returned, nor handed off."
+  }
+]
